@@ -1,0 +1,32 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url = "file:./dev.db"
+}
+
+model Malware {
+  id Int @id @default(autoincrement())
+  name String @unique
+  firstSeen DateTime
+  description String
+  type  String
+  severity Int
+  referenceUrl String?
+  incidents Incident[]
+}
+
+model Incident {
+  id Int @id @default(autoincrement())
+  malwareId Int
+  occurredAt DateTime
+  location String
+  summary String?
+  victims Int @default(1)
+  Malware Malware @relation(fields: [malwareId], references: [id])
+}
