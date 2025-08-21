@@ -17,3 +17,6 @@ export const addIncident = (id, payload) =>
 
 export const deleteIncident = id =>
   api.delete(`/incidents/${id}`);
+
+export const generateIncidents = () =>
+  api.post('/siem/generate').then(r => r.data);

@@ -2,31 +2,50 @@ import React, { useState } from "react";
 import {
   Box, Stack, Typography, Button, Paper, TextField, InputAdornment,
   TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
-  IconButton, Collapse
+  IconButton, Collapse, Alert, CircularProgress
 } from "@mui/material";
 import EditIcon from "@mui/icons-material/Edit";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import SearchIcon from "@mui/icons-material/Search";
-
-const initialIncidents = [
-  { id: 1, time: "", name: "", severity: "", status: "", verdict: "", assignee: "", expanded: false },
-  { id: 2, time: "", name: "", severity: "", status: "", verdict: "", assignee: "", expanded: false },
-  { id: 3, time: "", name: "", severity: "", status: "", verdict: "", assignee: "", expanded: false },
-];
+import { generateIncidents } from "../api";
 
 export default function Siem() {
-  const [rows, setRows] = useState(initialIncidents);
+  const [rows, setRows] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState("");
 
   const toggleExpand = (id) =>
     setRows((r) => r.map((x) => (x.id === id ? { ...x, expanded: !x.expanded } : x)));
 
+  const onGenerate = async () => {
+    setErr("");
+    setLoading(true);
+    try {
+      const r = await generateIncidents();
+      const incidents = (r?.incidents || []).map((it, idx) => ({
+        ...it,
+        id: idx + 1,
+        expanded: false,
+      }));
+      setRows(incidents);
+    } catch (e) {
+      const msg = e?.response?.data?.message || e.message || "Generation failed";
+      setErr(msg.includes("OPENAI_API_KEY") ? "Установи OPENAI_API_KEY на бэкенде." : msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
-    <Box>
-      {/* Заголовок и зелёная кнопка из темы (secondary) */}
+    <Box className="siem-page">
       <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
         <Typography variant="h4">SIEM training system</Typography>
-        <Button variant="contained" color="secondary">Generate</Button>
+        <Button variant="contained" color="secondary" onClick={onGenerate} disabled={loading}>
+          {loading ? "Generating…" : "Generate"}
+        </Button>
       </Stack>
+
+      {err && <Alert severity="error" sx={{ mb: 2 }}>{err}</Alert>}
 
       <Paper sx={{ p: 2, mb: 2 }}>
         <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 700 }}>Assigned alert</Typography>
@@ -64,6 +83,22 @@ export default function Siem() {
             </TableRow>
           </TableHead>
           <TableBody>
+            {loading && (
+              <TableRow>
+                <TableCell colSpan={7} align="center">
+                  <CircularProgress size={24} />
+                </TableCell>
+              </TableRow>
+            )}
+
+            {!loading && rows.length === 0 && (
+              <TableRow>
+                <TableCell colSpan={7} sx={{ opacity: 0.7 }}>
+                  Press <strong>Generate</strong> button, to generate 3 incidents.
+                </TableCell>
+              </TableRow>
+            )}
+
             {rows.map((row) => (
               <React.Fragment key={row.id}>
                 <TableRow hover>
@@ -90,10 +125,19 @@ export default function Siem() {
                   <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={7}>
                     <Collapse in={row.expanded} timeout="auto" unmountOnExit>
                       <Box sx={{ py: 1.5, px: 1 }}>
-                        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                          <strong>Description:</strong>&nbsp;
+                        <Typography variant="body2" sx={{ mb: 0.5, color: 'text.secondary' }}>
+                          <strong>Description:</strong>&nbsp;{row.description || "—"}
                         </Typography>
-                        {/* сюда позже подставим сгенерированные поля */}
+                        {Array.isArray(row.details) && row.details.length > 0 && (
+                          <Box sx={{ mt: 1, display: 'grid', rowGap: '6px' }}>
+                            {row.details.map((d, i) => (
+                              <div key={i} className="details">
+                                <span className="details-label">{d.label}:</span>{" "}
+                                <span className="details-value">{d.value}</span>
+                              </div>
+                            ))}
+                          </Box>
+                        )}
                       </Box>
                     </Collapse>
                   </TableCell>
@@ -105,7 +149,7 @@ export default function Siem() {
       </TableContainer>
 
       <Typography variant="body2" sx={{ mt: 1.5, color: 'text.secondary' }}>
-        Displaying 1 – 3 of 3 records
+        Displaying {rows.length ? `1 – ${rows.length} of ${rows.length}` : "0 of 0"} records
       </Typography>
     </Box>
   );
