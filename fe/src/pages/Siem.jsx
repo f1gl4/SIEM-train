@@ -14,12 +14,13 @@ export default function Siem() {
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
 
-  const toggleExpand = (id) =>
-    setRows((r) => r.map((x) => (x.id === id ? { ...x, expanded: !x.expanded } : x)));
+  const toggleExpand = (token) =>
+    setRows((r) => r.map((x) => (x.token === token ? { ...x, expanded: !x.expanded } : x)));
 
   const onGenerate = async () => {
     setErr("");
     setLoading(true);
+    setRows([]);
     try {
       const r = await generateIncidents();
       const incidents = (r?.incidents || []).map((it, idx) => ({
@@ -73,7 +74,7 @@ export default function Siem() {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell sx={{ width: 180 }}>Time</TableCell>
+              <TableCell sx={{ width: 230 }}>Time</TableCell>
               <TableCell>Name</TableCell>
               <TableCell sx={{ width: 120 }}>Severity</TableCell>
               <TableCell sx={{ width: 160 }}>Status</TableCell>
@@ -100,7 +101,7 @@ export default function Siem() {
             )}
 
             {rows.map((row) => (
-              <React.Fragment key={row.id}>
+              <React.Fragment key={row.token || row.id}>
                 <TableRow hover>
                   <TableCell>{row.time || "—"}</TableCell>
                   <TableCell>{row.name || "—"}</TableCell>
@@ -113,7 +114,7 @@ export default function Siem() {
                     <IconButton
                       size="small"
                       aria-label="expand"
-                      onClick={() => toggleExpand(row.id)}
+                      onClick={() => toggleExpand(row.token || row.id)}
                       sx={{ transform: row.expanded ? 'rotate(180deg)' : 'none', transition: '0.2s' }}
                     >
                       <ExpandMoreIcon fontSize="small" />

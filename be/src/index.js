@@ -138,7 +138,7 @@ Guidelines:
 - Vary attack types (phishing/double-extension, exfiltration, powershell persistence, credential theft, etc.).
 - Severity in {"Low","Medium","High","Critical"}.
 - Status ALWAYS "Awaiting action"; Verdict ALWAYS "None"; Assignee ALWAYS "None".
-- "time" must be today in ISO 8601 with minutes precision (UTC).
+- "time" must be today, formatted as 'Mon DDth YYYY at HH:MM' (UTC), for example 'Mar 21st 2025 at 13:58'.
 - "details" must be an array of 6–10 label/value pairs tailored to the alert type.
 - "description" concise (1–2 sentences).
 - Additionally include a HIDDEN field "ground_truth" (true|false, where true=True Positive, false=False Positive) and "ground_truth_reason" (1 short sentence). These are for system use ONLY; they will NOT be shown to the analyst.
@@ -148,7 +148,7 @@ JSON schema (return exactly this top-level shape):
 {
   "incidents": [
     {
-      "time": "2025-03-21T13:58:00Z",
+      "time": "Mon DDth YYYY at HH:MM",
       "name": "Name of the incident",
       "severity": "High",
       "status": "Awaiting action",
