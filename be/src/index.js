@@ -1,7 +1,10 @@
 import express from 'express';
 import cors from 'cors';
 import { PrismaClient } from '@prisma/client';
+import { randomUUID } from 'crypto';
 
+
+const siemTruthStore = new Map(); // key: token(UUID) -> { groundTruth: boolean, reason: string, full: any }
 const prisma = new PrismaClient();
 const app = express();
 
@@ -121,6 +124,7 @@ app.use((err, req, res, _next) => {
 const PORT = process.env.PORT || 4000;
 
 // === SIEM: generate AI incidents ===
+
 app.post('/api/siem/generate', async (req, res) => {
   try {
     const key = process.env.OPENAI_API_KEY;
@@ -128,14 +132,17 @@ app.post('/api/siem/generate', async (req, res) => {
 
     const system = `You are a SOC incident generator. Produce three highly realistic SIEM alerts for L1 triage.
 Return STRICT JSON that matches the schema below, no extra text.
+
 Guidelines:
 - Keep them believable and internally consistent (hosts, processes, filenames, IPs, hashes, URLs).
-- Vary attack types (e.g., phishing/double-extension, exfiltration, powershell persistence, credential theft, etc.).
+- Vary attack types (phishing/double-extension, exfiltration, powershell persistence, credential theft, etc.).
 - Severity in {"Low","Medium","High","Critical"}.
-- Status ALWAYS "Awaiting action"; Verdict ALWAYS "None"; Assignee empty string.
-- "time" should be recent (today) in ISO 8601 with minutes precision.
-- "details" should be an array of 6–10 key/value pairs tailored to the alert type (Host, Process Name, User, Target File, File MoTW, MD5/SHA256, Destination, Source IP, etc.).
+- Status ALWAYS "Awaiting action"; Verdict ALWAYS "None"; Assignee ALWAYS "None".
+- "time" must be today in ISO 8601 with minutes precision (UTC).
+- "details" must be an array of 6–10 label/value pairs tailored to the alert type.
 - "description" concise (1–2 sentences).
+- Additionally include a HIDDEN field "ground_truth" (true|false, where true=True Positive, false=False Positive) and "ground_truth_reason" (1 short sentence). These are for system use ONLY; they will NOT be shown to the analyst.
+- Rough distribution: 60–75% true positives, 25–40% false positives. For false positives, ensure details plausibly indicate a benign cause (e.g., admin script, user action, backup, legit domain/CDN).
 
 JSON schema (return exactly this top-level shape):
 {
@@ -151,14 +158,15 @@ JSON schema (return exactly this top-level shape):
       "details": [
         {"label":"Host","value":"…"},
         {"label":"Process Name","value":"…"}
-      ]
+      ],
+      "ground_truth": true,
+      "ground_truth_reason": "short system-only note"
     }, {…}, {…}
   ]
 }`;
 
     const user = `Generate three incidents now. Return ONLY the JSON described.`;
 
-    // use fetch
     const r = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -182,22 +190,45 @@ JSON schema (return exactly this top-level shape):
     }
 
     const data = await r.json();
-    let incidents;
+    let incidents = [];
+    const publicIncidents = [];
+
     try {
       const content = data.choices?.[0]?.message?.content ?? '{}';
       const parsed = JSON.parse(content);
-      incidents = (parsed.incidents || []).slice(0, 3).map((x, i) => ({
-        id: i + 1,
-        expanded: false,
-        time: x.time || '',
-        name: x.name || '',
-        severity: x.severity || 'Medium',
-        status: 'Awaiting action',
-        verdict: 'None',
-        assignee: '',
-        description: x.description || '',
-        details: Array.isArray(x.details) ? x.details.slice(0, 10) : []
-      }));
+
+      incidents = (parsed.incidents || []).slice(0, 3).map((x, i) => {
+        const token = randomUUID();
+
+        // llm didnt return ground_truth, then 70/30 (TP/FP)
+        const isTP = typeof x.ground_truth === 'boolean' ? x.ground_truth : Math.random() < 0.7;
+
+        // only server
+        siemTruthStore.set(token, {
+          groundTruth: isTP,
+          reason: x.ground_truth_reason || '',
+          full: x,
+        });
+
+        // pub v w no ground_truth*)
+        const pub = {
+          id: i + 1,
+          token,                 // later for evaluate/edit
+          expanded: false,
+          time: x.time || '',
+          name: x.name || '',
+          severity: x.severity || 'Medium',
+          status: 'Awaiting action',
+          verdict: 'None',
+          assignee: 'None',
+          description: x.description || '',
+          details: Array.isArray(x.details) ? x.details.slice(0, 10) : [],
+        };
+
+        publicIncidents.push(pub);
+        return pub;
+      });
+
     } catch (e) {
       return res.status(500).json({ message: 'Failed to parse AI response' });
     }
@@ -206,7 +237,8 @@ JSON schema (return exactly this top-level shape):
       return res.status(500).json({ message: 'AI did not return 3 incidents' });
     }
 
-    res.json({ incidents });
+
+    res.json({ incidents: publicIncidents });
   } catch (e) {
     console.error(e);
     res.status(500).json({ message: 'Internal error' });
