@@ -131,18 +131,21 @@ app.post('/api/siem/generate', async (req, res) => {
     if (!key) return res.status(401).json({ message: 'Missing OPENAI_API_KEY' });
 
     const system = `You are a SOC incident generator. Produce three highly realistic SIEM alerts for L1 triage.
+
 Return STRICT JSON that matches the schema below, no extra text.
 
 Guidelines:
-- Keep them believable and internally consistent (hosts, processes, filenames, IPs, hashes, URLs).
-- Vary attack types (phishing/double-extension, exfiltration, powershell persistence, credential theft, etc.).
+- Keep them believable and internally consistent (hosts, processes, filenames, IPs, hashes, URLs, etc.).
+- Each incident in the same batch MUST be a different attack type. Randomly choose from a wide pool:
+  phishing email, double-extension file, data exfiltration, PowerShell persistence, credential dumping, RDP brute force, DNS tunneling, unusual VPN login, suspicious registry change, privilege escalation, AV malware detection, port scanning, lateral movement via SMB, persistence via scheduled task, unusual admin tool usage, outbound traffic to TOR, and others.
+- Always randomize hostnames, users, filenames, IPs, hashes, and URLs so results are never repeated.
 - Severity in {"Low","Medium","High","Critical"}.
 - Status ALWAYS "Awaiting action"; Verdict ALWAYS "None"; Assignee ALWAYS "None".
-- "time" must be today, formatted as 'Mon DDth YYYY at HH:MM' (UTC), for example 'Mar 21st 2025 at 13:58'.
-- "details" must be an array of 6–10 label/value pairs tailored to the alert type.
+- "time" must be today, formatted as 'Mon DDth YYYY at HH:MM' (UTC), e.g., 'Aug 22nd 2025 at 14:05'.
+- "details" must be an array of 5–10 label/value pairs tailored to the specific alert type.
 - "description" concise (1–2 sentences).
-- Additionally include a HIDDEN field "ground_truth" (true|false, where true=True Positive, false=False Positive) and "ground_truth_reason" (1 short sentence). These are for system use ONLY; they will NOT be shown to the analyst.
-- Rough distribution: 60–75% true positives, 25–40% false positives. For false positives, ensure details plausibly indicate a benign cause (e.g., admin script, user action, backup, legit domain/CDN).
+- Include a HIDDEN field "ground_truth" (true|false) and "ground_truth_reason" (short sentence). For false positives, ensure details plausibly indicate a benign cause.
+- Rough distribution: 60–75% true positives, 25–40% false positives.
 
 JSON schema (return exactly this top-level shape):
 {
@@ -163,7 +166,8 @@ JSON schema (return exactly this top-level shape):
       "ground_truth_reason": "short system-only note"
     }, {…}, {…}
   ]
-}`;
+}
+`;
 
     const user = `Generate three incidents now. Return ONLY the JSON described.`;
 

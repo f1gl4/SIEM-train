@@ -9,10 +9,26 @@ import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import SearchIcon from "@mui/icons-material/Search";
 import { generateIncidents } from "../api";
 
+// Модал редактирования вынесен отдельно
+import SiemEdit, {
+  STATUS_OPTIONS, VERDICT_OPTIONS, SEVERITY_OPTIONS, ASSIGNEE_OPTIONS
+} from "./SiemEdit";
+
 export default function Siem() {
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(false);
   const [err, setErr] = useState("");
+
+  const [editOpen, setEditOpen] = useState(false);
+  const [editToken, setEditToken] = useState(null);
+  const [form, setForm] = useState({
+    name: "",
+    status: "New",
+    verdict: "None",
+    severity: "Medium",
+    assignee: "None",
+    comment: ""
+  });
 
   const toggleExpand = (token) =>
     setRows((r) => r.map((x) => (x.token === token ? { ...x, expanded: !x.expanded } : x)));
@@ -27,6 +43,7 @@ export default function Siem() {
         ...it,
         id: idx + 1,
         expanded: false,
+        analystComment: it.analystComment || "",
       }));
       setRows(incidents);
     } catch (e) {
@@ -35,6 +52,44 @@ export default function Siem() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // ===== Edit handlers
+  const openEdit = (row) => {
+    setEditToken(row.token || row.id);
+    setForm({
+      name: row.name || "",
+      status: STATUS_OPTIONS.includes(row.status) ? row.status : "New", // "Awaiting action" -> "New"
+      verdict: VERDICT_OPTIONS.includes(row.verdict) ? row.verdict : "None",
+      severity: SEVERITY_OPTIONS.includes(row.severity) ? row.severity : "Medium",
+      assignee: ASSIGNEE_OPTIONS.includes(row.assignee) ? row.assignee : "None",
+      comment: row.analystComment || "",
+    });
+    setEditOpen(true);
+  };
+
+  const closeEdit = () => {
+    setEditOpen(false);
+    setEditToken(null);
+  };
+
+  const saveEdit = () => {
+    if (!editToken) return;
+    setRows((prev) =>
+      prev.map((x) =>
+        (x.token || x.id) === editToken
+          ? {
+              ...x,
+              status: form.status,
+              verdict: form.verdict,
+              severity: form.severity,
+              assignee: form.assignee,
+              analystComment: form.comment,
+            }
+          : x
+      )
+    );
+    closeEdit();
   };
 
   return (
@@ -74,7 +129,7 @@ export default function Siem() {
         <Table>
           <TableHead>
             <TableRow>
-              <TableCell sx={{ width: 230 }}>Time</TableCell>
+              <TableCell sx={{ width: 220 }}>Time</TableCell>
               <TableCell>Name</TableCell>
               <TableCell sx={{ width: 120 }}>Severity</TableCell>
               <TableCell sx={{ width: 160 }}>Status</TableCell>
@@ -110,7 +165,9 @@ export default function Siem() {
                   <TableCell>{row.verdict || "—"}</TableCell>
                   <TableCell>{row.assignee || "—"}</TableCell>
                   <TableCell align="right">
-                    <IconButton size="small" aria-label="edit"><EditIcon fontSize="small" /></IconButton>
+                    <IconButton size="small" aria-label="edit" onClick={() => openEdit(row)}>
+                      <EditIcon fontSize="small" />
+                    </IconButton>
                     <IconButton
                       size="small"
                       aria-label="expand"
@@ -139,6 +196,13 @@ export default function Siem() {
                             ))}
                           </Box>
                         )}
+                        {row.analystComment && (
+                          <Box sx={{ mt: 1.5 }}>
+                            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                              <strong>Analyst Comment:</strong>&nbsp;{row.analystComment}
+                            </Typography>
+                          </Box>
+                        )}
                       </Box>
                     </Collapse>
                   </TableCell>
@@ -152,6 +216,14 @@ export default function Siem() {
       <Typography variant="body2" sx={{ mt: 1.5, color: 'text.secondary' }}>
         Displaying {rows.length ? `1 – ${rows.length} of ${rows.length}` : "0 of 0"} records
       </Typography>
+
+      <SiemEdit
+        open={editOpen}
+        form={form}
+        setForm={setForm}
+        onClose={closeEdit}
+        onSave={saveEdit}
+      />
     </Box>
   );
 }
