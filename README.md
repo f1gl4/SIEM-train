@@ -27,10 +27,10 @@ npm run dev
 Now, you can go to localhost:5173!
 
 
-## SIEM
+### SIEM
 
 <img width="1796" height="536" alt="image" src="https://github.com/user-attachments/assets/f8077748-ca82-4318-be2d-fa1d8215a540" />
 
-## GENERATE
+### GENERATE
 
 <img width="1796" height="829" alt="image" src="https://github.com/user-attachments/assets/95e9eabc-bcae-4641-9d19-949c1977548f" />
