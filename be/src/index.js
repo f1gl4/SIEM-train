@@ -250,4 +250,112 @@ JSON schema (return exactly this top-level shape):
 });
 
 
+// === SIEM: evaluate verdict ===
+app.post('/api/siem/evaluate', async (req, res) => {
+  try {
+    const key = process.env.OPENAI_API_KEY;
+    if (!key) return res.status(401).json({ message: 'Missing OPENAI_API_KEY' });
+
+    const { token, verdict, status, severity, assignee, comment } = req.body || {};
+    if (!token) return res.status(400).json({ message: 'Missing token' });
+
+    const stored = siemTruthStore.get(token);
+    if (!stored) return res.status(404).json({ message: 'Incident token not found' });
+
+    // generation data
+    const full = stored.full || {};
+    const gtBool = !!stored.groundTruth;
+    const gtLabel = gtBool ? 'True Positive' : 'False Positive';
+
+    const verdictMap = {
+      'True Positive': true,
+      'False Positive': false,
+      'None': null,
+    };
+    const chosenBool = verdictMap[verdict] ?? null;
+
+    // heck verdict
+    const verdictCorrect = (chosenBool !== null) ? (chosenBool === gtBool) : false;
+
+    const system = `You are an L2 SOC evaluator. You will receive:
+
+    - the original alert (context),
+    - the analyst selection (status, verdict, severity, assignee),
+    - the analyst's 5W comment,
+    - and the hidden ground truth.
+
+    Task:
+    1) Assess the quality of the 5W comment for an L1 SOC triage (Who/What/Where/When/Why quality, accuracy, conciseness, actionability).
+    2) Write 2–4 sentences of constructive feedback tailored to L1.
+    3) Provide a 0–100 integer score (0=useless, 100=excellent).
+    4) Provide a 1–2 sentence summary of the incident and triage.
+    Return STRICT JSON with keys:
+    {
+      "report_score": 0-100 (integer),
+      "report_feedback": "2-4 sentences",
+      "summary": "1-2 sentences"
+    }
+    Do NOT include extra keys or text.`;
+
+    const user = {
+      alert: {
+        time: full.time,
+        name: full.name,
+        severity_original: full.severity,
+        description: full.description,
+        details: full.details,
+      },
+      analyst_selection: { status, verdict, severity, assignee },
+      analyst_comment_5w: comment || "",
+      ground_truth: { value: gtBool, label: gtLabel, reason: stored.reason || "" }
+    };
+
+    const r = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${key}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        temperature: 0.3,
+        messages: [
+          { role: 'system', content: system },
+          { role: 'user', content: JSON.stringify(user, null, 2) }
+        ],
+        response_format: { type: 'json_object' }
+      }),
+    });
+
+    if (!r.ok) {
+      const errTxt = await r.text().catch(() => '');
+      return res.status(502).json({ message: 'OpenAI request failed', detail: errTxt });
+    }
+
+    // parse and feedback
+    let ai = { report_score: 0, report_feedback: '', summary: '' };
+    try {
+      const data = await r.json();
+      const content = data?.choices?.[0]?.message?.content ?? '{}';
+      ai = JSON.parse(content);
+    } catch (_) {  }
+
+    // make answer
+    res.json({
+      token,
+      chosenVerdict: verdict || 'None',
+      groundTruth: gtLabel,
+      groundTruthReason: stored.reason || '',
+      verdictOk: verdictCorrect ? 'Yes' : 'No',
+      reportScore: Number.isInteger(ai.report_score) ? Math.max(0, Math.min(100, ai.report_score)) : 0,
+      reportFeedback: ai.report_feedback || '',
+      summary: ai.summary || ''
+    });
+  } catch (e) {
+    console.error(e);
+    res.status(500).json({ message: 'Internal error' });
+  }
+});
+
+
 app.listen(PORT, () => console.log(`API running on localhost:${PORT}`));

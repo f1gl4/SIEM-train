@@ -9,7 +9,7 @@ export const VERDICT_OPTIONS = ["None", "True Positive", "False Positive"];
 export const SEVERITY_OPTIONS = ["Low", "Medium", "High", "Critical"];
 export const ASSIGNEE_OPTIONS = ["None", "Me", "L2 analyst"];
 
-export default function SiemEdit({ open, form, setForm, onClose, onSave }) {
+export default function SiemEdit({ open, form, setForm, onClose, onSave, onEvaluate }) {
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle sx={{ pb: 1 }}>
@@ -99,7 +99,7 @@ export default function SiemEdit({ open, form, setForm, onClose, onSave }) {
 
       <DialogActions sx={{ p: 2 }}>
         <Button onClick={onClose}>Cancel</Button>
-        <Button variant="contained" color="info">Evaluate</Button>
+        <Button variant="contained" color="info" onClick={() => onEvaluate?.(form)}>Evaluate</Button>
         <Button variant="contained" color="secondary" onClick={onSave}>Save</Button>
       </DialogActions>
     </Dialog>

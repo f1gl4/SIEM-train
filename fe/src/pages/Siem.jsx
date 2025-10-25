@@ -7,9 +7,9 @@ import {
 import EditIcon from "@mui/icons-material/Edit";
 import ExpandMoreIcon from "@mui/icons-material/ExpandMore";
 import SearchIcon from "@mui/icons-material/Search";
-import { generateIncidents } from "../api";
+import { generateIncidents, evaluateIncident } from "../api";
 
-// Модал редактирования вынесен отдельно
+
 import SiemEdit, {
   STATUS_OPTIONS, VERDICT_OPTIONS, SEVERITY_OPTIONS, ASSIGNEE_OPTIONS
 } from "./SiemEdit";
@@ -90,6 +90,39 @@ export default function Siem() {
       )
     );
     closeEdit();
+  };
+
+  const evaluateEdit = async (f) => {
+    if (!editToken) return;
+    try {
+      setLoading(true);
+      const payload = {
+        token: editToken,
+        status: f.status,
+        verdict: f.verdict,
+        severity: f.severity,
+        assignee: f.assignee,
+        comment: f.comment,
+      };
+      
+      const res = await evaluateIncident(payload);
+      setRows(prev => prev.map(x => 
+        (x.token || x.id) === editToken
+          ? { ...x, aiEval: res, status: f.status, verdict: f.verdict, severity: f.severity, assignee: f.assignee, analystComment: f.comment }
+          : x
+      ));
+      
+      setRows(prev => prev.map(x => 
+        (x.token || x.id) === editToken ? { ...x, expanded: true } : x
+      ));
+      setEditOpen(false);
+      setEditToken(null);
+    } catch (e) {
+      const msg = e?.response?.data?.message || e.message || "Evaluation failed";
+      setErr(msg);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -196,6 +229,7 @@ export default function Siem() {
                             ))}
                           </Box>
                         )}
+                        
                         {row.analystComment && (
                           <Box sx={{ mt: 1.5 }}>
                             <Typography variant="body2" sx={{ color: 'text.secondary' }}>
@@ -203,6 +237,36 @@ export default function Siem() {
                             </Typography>
                           </Box>
                         )}
+
+                        {row.aiEval && (
+                          <Box sx={{ mt: 1.5, p: 1.2, borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+                            <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
+                              AI Evaluation
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: 'text.secondary '}}>
+                              <strong>Ground Truth:</strong>&nbsp;{row.aiEval.groundTruth}
+                              {row.aiEval.groundTruthReason ? ` — ${row.aiEval.groundTruthReason}` : ""}
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                             <strong>Verdict chosen:</strong>&nbsp;{row.aiEval.chosenVerdict}&nbsp;&nbsp;|&nbsp;&nbsp;
+                              <strong>Correct?</strong>&nbsp;{row.aiEval.verdictOk}
+                            </Typography>
+                            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                              <strong>Report score:</strong>&nbsp;{row.aiEval.reportScore}%
+                            </Typography>
+                            {row.aiEval.summary && (
+                              <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                                <strong>Summary:</strong>&nbsp;{row.aiEval.summary}
+                              </Typography>
+                            )}
+                            {row.aiEval.reportFeedback && (
+                              <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+                                <strong>Feedback:</strong>&nbsp;{row.aiEval.reportFeedback}
+                              </Typography>
+                            )}
+                          </Box>
+                        )}
+
                       </Box>
                     </Collapse>
                   </TableCell>
@@ -223,6 +287,7 @@ export default function Siem() {
         setForm={setForm}
         onClose={closeEdit}
         onSave={saveEdit}
+        onEvaluate={evaluateEdit}
       />
     </Box>
   );
