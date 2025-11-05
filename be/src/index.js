@@ -2,7 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import { PrismaClient } from '@prisma/client';
 import { randomUUID } from 'crypto';
-
+import { getRandomKev } from './kev.js';
 
 const siemTruthStore = new Map(); // key: token(UUID) -> { groundTruth: boolean, reason: string, full: any }
 const prisma = new PrismaClient();
@@ -130,22 +130,41 @@ app.post('/api/siem/generate', async (req, res) => {
     const key = process.env.OPENAI_API_KEY;
     if (!key) return res.status(401).json({ message: 'Missing OPENAI_API_KEY' });
 
+    // random KEV
+    let kev = null;
+    try {
+      kev = await getRandomKev();
+    } catch (_) {
+      kev = null; // fallback
+    }
+
+    //
+    const kevSection = kev ? `
+A real-world CVE seed is supplied below. You MUST base exactly one of the three incidents on it (choose a random position; do NOT reveal which one).
+MASKING RULES for that incident:
+- NEVER include the CVE ID, the words "CISA" or "KEV", or advisory links.
+- AVOID brand/product names; use generic nouns (e.g., "popular email client", "virtualization management console").
+- Describe only observable behavior, telemetry and impact consistent with the CVE (process chain, service restarts, crash + DLL sideloading, exploit payload indicator, outbound callbacks, privilege change, etc.).
+- Keep it realistic for SIEM: 5–10 tailored details (host/user/process/log fields/IOC), randomized values.
+- Set "ground_truth": true and "ground_truth_reason": "real-world exploitation pattern inferred from public CVE".` : `
+No KEV seed available. Produce all three incidents as usual.`;
+
     const system = `You are a SOC incident generator. Produce three highly realistic SIEM alerts for L1 triage.
 
 Return STRICT JSON that matches the schema below, no extra text.
 
 Guidelines:
 - Keep them believable and internally consistent (hosts, processes, filenames, IPs, hashes, URLs, etc.).
-- Each incident in the same batch MUST be a different attack type. Randomly choose from a wide pool:
-  phishing email, double-extension file, data exfiltration, PowerShell persistence, credential dumping, RDP brute force, DNS tunneling, unusual VPN login, suspicious registry change, privilege escalation, AV malware detection, port scanning, lateral movement via SMB, persistence via scheduled task, unusual admin tool usage, outbound traffic to TOR, and others.
+- Each incident in the same batch MUST be a different attack type.
 - Always randomize hostnames, users, filenames, IPs, hashes, and URLs so results are never repeated.
 - Severity in {"Low","Medium","High","Critical"}.
 - Status ALWAYS "Awaiting action"; Verdict ALWAYS "None"; Assignee ALWAYS "None".
-- "time" must be today, formatted as 'Mon DDth YYYY at HH:MM' (UTC), e.g., 'Aug 22nd 2025 at 14:05'.
+- "time" must be today, formatted as 'Mon DDth YYYY at HH:MM' (UTC).
 - "details" must be an array of 5–10 label/value pairs tailored to the specific alert type.
 - "description" concise (1–2 sentences).
-- Include a HIDDEN field "ground_truth" (true|false) and "ground_truth_reason" (short sentence). For false positives, ensure details plausibly indicate a benign cause.
+- Include a HIDDEN field "ground_truth" (true|false) and "ground_truth_reason" (short sentence).
 - Rough distribution: 60–75% true positives, 25–40% false positives.
+${kevSection}
 
 JSON schema (return exactly this top-level shape):
 {
@@ -169,7 +188,13 @@ JSON schema (return exactly this top-level shape):
 }
 `;
 
-    const user = `Generate three incidents now. Return ONLY the JSON described.`;
+    //
+    const user = kev
+      ? `Generate three incidents now. Return ONLY the JSON described.
+
+    kev_seed:
+      ${JSON.stringify(kev, null, 2)}`
+      : `Generate three incidents now. Return ONLY the JSON described.`;
 
     const r = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -204,20 +229,27 @@ JSON schema (return exactly this top-level shape):
       incidents = (parsed.incidents || []).slice(0, 3).map((x, i) => {
         const token = randomUUID();
 
-        // llm didnt return ground_truth, then 70/30 (TP/FP)
-        const isTP = typeof x.ground_truth === 'boolean' ? x.ground_truth : Math.random() < 0.7;
+        // if CVE -> true
+        const isKevIncident =
+          !!kev &&
+          (
+            (typeof x.name === 'string' && x.name.includes(kev.cveID)) ||
+            (Array.isArray(x.details) && x.details.some(d => (d.value || '').includes?.(kev.cveID)))
+          );
 
-        // only server
+        const isTP = isKevIncident
+          ? true
+          : (typeof x.ground_truth === 'boolean' ? x.ground_truth : Math.random() < 0.7);
+
         siemTruthStore.set(token, {
           groundTruth: isTP,
-          reason: x.ground_truth_reason || '',
+          reason: x.ground_truth_reason || (isKevIncident ? `Based on CISA KEV ${kev.cveID}` : ''),
           full: x,
         });
 
-        // pub v w no ground_truth*)
         const pub = {
           id: i + 1,
-          token,                 // later for evaluate/edit
+          token,
           expanded: false,
           time: x.time || '',
           name: x.name || '',
@@ -241,13 +273,13 @@ JSON schema (return exactly this top-level shape):
       return res.status(500).json({ message: 'AI did not return 3 incidents' });
     }
 
-
     res.json({ incidents: publicIncidents });
   } catch (e) {
     console.error(e);
     res.status(500).json({ message: 'Internal error' });
   }
 });
+
 
 
 // === SIEM: evaluate verdict ===
