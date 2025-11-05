@@ -34,3 +34,7 @@ Now, you can go to localhost:5173!
 ### GENERATE
 
 <img width="1796" height="829" alt="image" src="https://github.com/user-attachments/assets/95e9eabc-bcae-4641-9d19-949c1977548f" />
+
+### EVALUATE
+
+<img width="1796" height="524" alt="image" src="https://github.com/user-attachments/assets/f32e3aee-d682-4432-8874-aaf8baeb9dd3" />
