@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Box, Stack, Typography, Button, Paper, TextField, InputAdornment,
   TableContainer, Table, TableHead, TableRow, TableCell, TableBody,
@@ -13,6 +13,8 @@ import { generateIncidents, evaluateIncident } from "../api";
 import SiemEdit, {
   STATUS_OPTIONS, VERDICT_OPTIONS, SEVERITY_OPTIONS, ASSIGNEE_OPTIONS
 } from "./SiemEdit";
+
+const SIEM_STORAGE_KEY = "siem-training-incidents";
 
 export default function Siem() {
   const [rows, setRows] = useState([]);
@@ -29,6 +31,33 @@ export default function Siem() {
     assignee: "None",
     comment: ""
   });
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(SIEM_STORAGE_KEY);
+      if (!raw) return;
+
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        setRows(parsed);
+      }
+    } catch (e) {
+      console.error("Failed to load SIEM incidents from storage", e);
+    }
+  }, []);
+
+  useEffect(() => {
+    try {
+      if (!rows || rows.length === 0) {
+        localStorage.removeItem(SIEM_STORAGE_KEY);
+      } else {
+        localStorage.setItem(SIEM_STORAGE_KEY, JSON.stringify(rows));
+      }
+    } catch (e) {
+      console.error("Failed to persist SIEM incidents to storage", e);
+    }
+  }, [rows]);
+
 
   const toggleExpand = (token) =>
     setRows((r) => r.map((x) => (x.token === token ? { ...x, expanded: !x.expanded } : x)));

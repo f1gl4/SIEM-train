@@ -10,7 +10,7 @@ export default function Layout() {
       <AppBar position="static" color="transparent" elevation={0}>
         <Toolbar>
           <Button color="inherit" component={Link} to="/">Home</Button>
-          <Button color="inherit" component={Link} to="/malware">Malware</Button>
+          <Button color="inherit" component={Link} to="/malware">Threats</Button>
           <Button color="inherit" component={Link} to="/stats">Stats</Button>
           <Button color="inherit" component={Link} to="/siem">SIEM</Button>
         </Toolbar>

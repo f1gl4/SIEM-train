@@ -4,6 +4,8 @@ import { PrismaClient } from '@prisma/client';
 import { randomUUID } from 'crypto';
 import { getRandomKev } from './kev.js';
 import { getTwoDistinctMispSeeds } from './misp.js';
+import { handleTruePositiveMalware } from './siemMalware.js';
+
 
 const siemTruthStore = new Map(); // key: token(UUID) -> { groundTruth: boolean, reason: string, full: any }
 const prisma = new PrismaClient();
@@ -19,10 +21,17 @@ app.get('/api/malware', async (req, res) => {
 });
 
 app.post('/api/malware', async (req, res) => {
-  const malware = await prisma.malware.create({ 
-    data: { ...req.body, firstSeen: new Date(req.body.firstSeen) },
-   });
-  res.status(201).json(malware);
+  try {
+    const { firstSeen, ...rest } = req.body;
+
+    const data = { ...rest, firstSeen: firstSeen ? new Date(firstSeen) : new Date(), };
+
+    const malware = await prisma.malware.create({ data });
+    res.status(201).json(malware);
+  } catch (e) {
+    console.error(e);
+    res.status(400).json({ message: 'Bad request' });
+  }
 });
 
 app.get('/api/malware/:id', async (req, res) => {
@@ -38,12 +47,15 @@ app.get('/api/malware/:id', async (req, res) => {
 
 app.put('/api/malware/:id', async (req, res) => {
   try {
+    const { firstSeen, ...rest } = req.body;
+    const data = { ...rest, ...(firstSeen ? { firstSeen: new Date(firstSeen) } : {}), };
     const malware = await prisma.malware.update({
       where: { id: Number(req.params.id) },
-      data: { ...req.body, firstSeen: new Date(req.body.firstSeen) },
+      data,
     });
     res.json(malware);
   } catch (e) {
+    console.error(e);
     res.status(404).json({ message: 'Not found' });
   }
 });
@@ -139,6 +151,8 @@ app.post('/api/siem/generate', async (req, res) => {
     // PROMPTS
     const kevSection = kev ? `
 A real-world CVE seed is supplied below. You MUST base exactly one of the three incidents on it (choose a random position; do NOT reveal which one).
+For that single incident you MUST set "source_tag": "kev".
+For all other incidents "source_tag" MUST NOT be "kev".
 MASKING RULES for that incident:
 - NEVER include the CVE ID, the words "CISA" or "KEV", or advisory links.
 - AVOID brand/product names; use generic nouns (e.g., "popular email client", "virtualization management console").
@@ -148,6 +162,8 @@ No KEV seed available.`;
 
     const mispSection = mispSeeds.length === 2 ? `
 Two MISP Galaxy seeds are supplied below. You MUST base the other two incidents on them (one incident per seed, random positions; do NOT reveal which seed you used).
+For the incident derived from misp_seed_1 set "source_tag": "misp_seed_1".
+For the incident derived from misp_seed_2 set "source_tag": "misp_seed_2".
 MASKING RULES for these two:
 - Do NOT mention family names (e.g., no "Remcos", "AgentTesla", "Conti") — use generic roles like "commercial remote administration tool", "credential stealer", "banking trojan", "backdoor", etc.
 - Focus on host/user/process/log artifacts and network telemetry.
@@ -167,7 +183,7 @@ Guidelines:
 - "time" must be today, formatted as 'Mon DDth YYYY at HH:MM' (UTC).
 - "details" must be an array of 5–10 label/value pairs tailored to the specific alert type.
 - "description" concise (1–2 sentences).
-- Include a HIDDEN field "ground_truth" (true|false) and "ground_truth_reason" (short sentence).
+- Include a HIDDEN field "ground_truth" (true|false) and "ground_truth_reason" (short sentence) and "source_tag" — one of "kev", "misp_seed_1", "misp_seed_2", or "synthetic" indicating which seed (if any) was used. This field is for backend only and MUST NEVER be referenced in user-visible text.
 - If KEV and MISP seeds are provided: base exactly one incident on KEV and exactly two on MISP (one per seed), in random order.
 ${kevSection}
 ${mispSection}
@@ -188,7 +204,8 @@ JSON schema (return exactly this top-level shape):
         {"label":"Process Name","value":"…"}
       ],
       "ground_truth": true,
-      "ground_truth_reason": "short system-only note"
+      "ground_truth_reason": "short system-only note",
+      "source_tag": "kev"
     }, {…}, {…}
   ]
 }
@@ -228,23 +245,27 @@ JSON schema (return exactly this top-level shape):
 
     // parse - answer - ground_truth
     const publicIncidents = [];
+    const malwareTasks = [];
     try {
       const content = data.choices?.[0]?.message?.content ?? '{}';
       const parsed = JSON.parse(content);
       const items = (parsed.incidents || []).slice(0, 3);
 
-      // at least 1 false positive
-      let falseCount = items.filter(x => x.ground_truth === false).length;
-
       items.forEach((x, i) => {
         const token = randomUUID();
 
-        let isTP = typeof x.ground_truth === 'boolean' ? x.ground_truth : true;
+        // ground_truth 
+        const isTP = typeof x.ground_truth === 'boolean' ? x.ground_truth : true;
 
-        // TODO - сейчас последний записывает как FP для баланса 
-        if (i === items.length - 1 && falseCount === 0) {
-          isTP = false;
-          falseCount = 1;
+        if (isTP) {
+          malwareTasks.push(
+            handleTruePositiveMalware({
+              prisma,
+              incident: x,
+              kevSeed: kev,
+              mispSeeds,
+            })
+          );
         }
 
         siemTruthStore.set(token, {
@@ -274,10 +295,12 @@ JSON schema (return exactly this top-level shape):
       return res.status(500).json({ message: 'Failed to parse AI response' });
     }
 
+
     if (publicIncidents.length !== 3) {
       return res.status(500).json({ message: 'AI did not return 3 incidents' });
     }
 
+    await Promise.all(malwareTasks);
     res.json({ incidents: publicIncidents });
   } catch (e) {
     console.error(e);
