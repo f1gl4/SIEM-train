@@ -29,12 +29,27 @@ Now, you can go to localhost:5173!
 
 ### SIEM
 
-<img width="1796" height="536" alt="image" src="https://github.com/user-attachments/assets/f8077748-ca82-4318-be2d-fa1d8215a540" />
+<img width="1788" height="457" alt="image" src="https://github.com/user-attachments/assets/85ceb466-1283-4daa-b371-b75ee78fb8df" />
+
 
 ### GENERATE
 
-<img width="1796" height="829" alt="image" src="https://github.com/user-attachments/assets/95e9eabc-bcae-4641-9d19-949c1977548f" />
+<img width="1788" height="854" alt="image" src="https://github.com/user-attachments/assets/63f33d04-e833-4de6-8c32-9b4aeca47cab" />
+
 
 ### EVALUATE
 
-<img width="1796" height="524" alt="image" src="https://github.com/user-attachments/assets/f32e3aee-d682-4432-8874-aaf8baeb9dd3" />
+<img width="1788" height="630" alt="image" src="https://github.com/user-attachments/assets/46e2a12b-975e-4f0c-b8e5-3ed382dce952" />
+
+<img width="1788" height="567" alt="image" src="https://github.com/user-attachments/assets/ac82c56e-59b9-42af-862e-79ed480dbd13" />
+
+
+### STATS
+
+<img width="1788" height="625" alt="image" src="https://github.com/user-attachments/assets/051f1c48-0a83-4d8d-b49b-84101fd93073" />
+
+
+### THREATS
+
+<img width="1788" height="838" alt="image" src="https://github.com/user-attachments/assets/64e4aec3-0dc1-488c-b7fa-54c30732621c" />
+
