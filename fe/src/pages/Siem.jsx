@@ -171,20 +171,7 @@ export default function Siem() {
           You haven't picked up any alerts! Assign yourself to an alert, move it to "In Progress", and start the triage!
         </Typography>
 
-        <Stack direction="row" sx={{ mt: 2 }}>
-          <TextField
-            size="small"
-            placeholder="Search for an alert"
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <SearchIcon fontSize="small" />
-                </InputAdornment>
-              ),
-            }}
-            sx={{ width: 320 }}
-          />
-        </Stack>
+
       </Paper>
 
       <TableContainer component={Paper}>
