@@ -11,13 +11,14 @@ export const createMalware = payload => api.post(`/malware`, payload);
 export const updateMalware = (id, payload) => api.put(`/malware/${id}`, payload);
 export const deleteMalware = id => api.delete(`/malware/${id}`);
 
-// incident
+// malware-incident
 export const addIncident = (id, payload) =>
   api.post(`/malware/${id}/incidents`, payload);
 
 export const deleteIncident = id =>
   api.delete(`/incidents/${id}`);
 
+// SIEM incident
 export const generateIncidents = () =>
   api.post('/siem/generate').then(r => r.data);
 
