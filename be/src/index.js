@@ -181,9 +181,9 @@ Guidelines:
 - Severity in {"Low","Medium","High","Critical"}.
 - Status ALWAYS "Awaiting action"; Verdict ALWAYS "None"; Assignee ALWAYS "None".
 - "time" must be today, formatted as 'Mon DDth YYYY at HH:MM' (UTC).
-- "details" must be an array of 5–10 label/value pairs tailored to the specific alert type.
-- "description" concise (1–2 sentences).
-- Include a HIDDEN field "ground_truth" (true|false) and "ground_truth_reason" (short sentence) and "source_tag" — one of "kev", "misp_seed_1", "misp_seed_2", or "synthetic" indicating which seed (if any) was used. This field is for backend only and MUST NEVER be referenced in user-visible text.
+- "details" must be an array of 5-10 label/value pairs tailored to the specific alert type.
+- "description" concise (1-2 sentences).
+- Include a HIDDEN field "ground_truth" (true|false) and "ground_truth_reason" (short sentence) and "source_tag" - one of "kev", "misp_seed_1", "misp_seed_2", or "synthetic" indicating which seed (if any) was used. This field is for backend only and MUST NEVER be referenced in user-visible text.
 - If KEV and MISP seeds are provided: base exactly one incident on KEV and exactly two on MISP (one per seed), in random order.
 ${kevSection}
 ${mispSection}
@@ -198,15 +198,15 @@ JSON schema (return exactly this top-level shape):
       "status": "Awaiting action",
       "verdict": "None",
       "assignee": "None",
-      "description": "…",
+      "description": "...",
       "details": [
-        {"label":"Host","value":"…"},
-        {"label":"Process Name","value":"…"}
+        {"label":"Host","value":"..."},
+        {"label":"Process Name","value":"..."}
       ],
       "ground_truth": true,
       "ground_truth_reason": "short system-only note",
       "source_tag": "kev"
-    }, {…}, {…}
+    }, {...}, {...}
   ]
 }
 `;
