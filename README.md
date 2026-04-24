@@ -36,12 +36,12 @@ Now, you can go to localhost:5173!
 
 ### SIEM
 
-<img width="1788" height="457" alt="image" src="https://github.com/user-attachments/assets/85ceb466-1283-4daa-b371-b75ee78fb8df" />
+<img width="1443" height="403" alt="image" src="https://github.com/user-attachments/assets/3afd9f2e-6da9-463e-94a1-4f1d1fa10390" />
 
 
 ### GENERATE
 
-<img width="1788" height="854" alt="image" src="https://github.com/user-attachments/assets/63f33d04-e833-4de6-8c32-9b4aeca47cab" />
+<img width="1443" height="781" alt="image" src="https://github.com/user-attachments/assets/26f76dbc-614a-42bb-9696-540b044c0122" />
 
 
 ### EVALUATE
