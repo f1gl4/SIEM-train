@@ -77,7 +77,7 @@ export default function Siem() {
       setRows(incidents);
     } catch (e) {
       const msg = e?.response?.data?.message || e.message || "Generation failed";
-      setErr(msg.includes("OPENAI_API_KEY") ? "Установи OPENAI_API_KEY на бэкенде." : msg);
+      setErr(msg.includes("OPENAI_API_KEY") ? "Add your OPENAI_API_KEY to .env file." : msg);
     } finally {
       setLoading(false);
     }
