@@ -10,7 +10,6 @@ cd SIEM-train
 ```bash
 cd be
 npm i
-npm i dotenv
 
 npx prisma migrate dev --name init
 npx prisma db seed
