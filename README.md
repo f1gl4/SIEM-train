@@ -10,18 +10,22 @@ cd SIEM-train
 ```bash
 cd be
 npm i
+npm i dotenv
 
 npx prisma migrate dev --name init
 npx prisma db seed
-
-npm run dev
 ```
-### Set OpenAI API key
+#### Set OpenAI API key
 The SIEM alert generation and evaluation endpoints require an OpenAI key.
 
 Before starting the back-end, set the enviroment variable 'OPENAI_API_KEY'.
 
-``` export OPENAI_API_KEY="your_key_here" ```
+``` 
+echo "OPENAI_API_KEY=your_api_key" > .env
+```
+Now, run the back-end:
+
+``` npm run dev ```
 
 ### 3. Front-end:
 ```bash
