@@ -168,7 +168,7 @@ export default function Siem() {
       <Paper sx={{ p: 2, mb: 2 }}>
         <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 700 }}>Assigned alert</Typography>
         <Typography variant="body2" sx={{ opacity: 0.7, border: '1px dashed', borderColor: 'divider', p: 1.2, borderRadius: 1 }}>
-          You haven't picked up any alerts! Assign yourself to an alert, move it to "In Progress", and start the triage!
+          Assign yourself to an alert, move it to "In Progress", and start the triage! Don't forget to evaluate your work by AI for feedback!
         </Typography>
 
 
